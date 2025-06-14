@@ -6,41 +6,64 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>POS System</h1>
-    <div id="product-list"></div>
-    <hr>
+    <h1>Touch POS System</h1>
+    <div id="product-container"></div>
+
     <h3>Cart</h3>
     <ul id="cart-list"></ul>
     <button onclick="checkout()">Checkout</button>
 
     <script>
-        let cart = [];
+        let cart = {};
+
+        function renderCart() {
+            const list = document.getElementById("cart-list");
+            list.innerHTML = "";
+            Object.values(cart).forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = `${item.name} x${item.quantity} - $${(item.price * item.quantity).toFixed(2)}`;
+                list.appendChild(li);
+            });
+        }
+
+        function addToCart(id, name, price) {
+            if (!cart[id]) {
+                cart[id] = { id, name, price, quantity: 0 };
+            }
+            cart[id].quantity++;
+            renderCart();
+        }
 
         fetch('/products')
             .then(res => res.json())
             .then(data => {
-                const list = document.getElementById("product-list");
+                const container = document.getElementById("product-container");
                 data.forEach(product => {
                     const div = document.createElement("div");
-                    div.innerHTML = `${product.name} - $${product.price.toFixed(2)}
-                        <input type="number" id="qty-${product.id}" value="1" min="1" style="width:50px;">
-                        <button onclick="addToCart(${product.id}, '${product.name}', ${product.price})">Add</button>`;
-                    list.appendChild(div);
+                    div.className = "product";
+
+                    const img = document.createElement("img");
+                    img.src = `/static/images/${product.name.toLowerCase()}.png`;
+                    img.alt = product.name;
+                    img.onclick = () => addToCart(product.id, product.name, product.price);
+
+                    const label = document.createElement("p");
+                    label.textContent = `${product.name} - $${product.price.toFixed(2)}`;
+
+                    div.appendChild(img);
+                    div.appendChild(label);
+                    container.appendChild(div);
                 });
             });
 
-        function addToCart(id, name, price) {
-            const qty = parseInt(document.getElementById(`qty-${id}`).value);
-            const total = price * qty;
-            cart.push({id, name, quantity: qty, total});
-            const cartList = document.getElementById("cart-list");
-            const item = document.createElement("li");
-            item.textContent = `${name} x${qty} - $${total.toFixed(2)}`;
-            cartList.appendChild(item);
-        }
-
         function checkout() {
-            if (cart.length === 0) {
+            const cartItems = Object.values(cart).map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+                total: item.price * item.quantity
+            }));
+
+            if (cartItems.length === 0) {
                 alert("Cart is empty.");
                 return;
             }
@@ -48,13 +71,13 @@
             fetch('/checkout', {
                 method: "POST",
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({cart})
+                body: JSON.stringify({ cart: cartItems })
             })
             .then(res => res.json())
             .then(data => {
                 alert(data.message);
-                cart = [];
-                document.getElementById("cart-list").innerHTML = "";
+                cart = {};
+                renderCart();
             });
         }
     </script>

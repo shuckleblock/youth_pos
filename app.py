@@ -42,7 +42,9 @@ def init_db():
         cur.executemany("INSERT INTO products (name, price) VALUES (%s, %s)", [
             ('Apple', 0.50),
             ('Banana', 0.30),
-            ('Orange', 0.80)
+            ('Orange', 0.80),
+            ('삼겹살', 15.00),
+            ('Lemonade', 3.00)
         ])
 
     conn.commit()
