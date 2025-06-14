@@ -164,6 +164,32 @@ def delete_product(product_id):
 
     return redirect(url_for('admin'))
 
+@app.route('/transactions')
+def transactions():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Join sales and products tables to get readable product names
+    cur.execute("""
+        SELECT 
+            s.timestamp, 
+            p.name, 
+            s.quantity, 
+            s.total 
+        FROM sales s
+        JOIN products p ON s.product_id = p.id
+        ORDER BY s.timestamp DESC
+    """)
+    sales = cur.fetchall()
+
+    # Calculate running total
+    cur.execute("SELECT SUM(total) FROM sales")
+    total_sales = cur.fetchone()[0] or 0.0
+
+    cur.close()
+    conn.close()
+
+    return render_template("transactions.html", sales=sales, total_sales=total_sales)
 
 if __name__ == '__main__':
     init_db()
