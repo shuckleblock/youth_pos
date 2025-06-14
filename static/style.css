@@ -1,0 +1,10 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+h1, h3 {
+    color: #333;
+}
+div {
+    margin-bottom: 10px;
+}

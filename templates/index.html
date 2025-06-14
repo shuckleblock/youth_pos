@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>POS System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>POS System</h1>
+    <div id="product-list"></div>
+    <hr>
+    <h3>Cart</h3>
+    <ul id="cart-list"></ul>
+    <button onclick="checkout()">Checkout</button>
+
+    <script>
+        let cart = [];
+
+        fetch('/products')
+            .then(res => res.json())
+            .then(data => {
+                const list = document.getElementById("product-list");
+                data.forEach(product => {
+                    const div = document.createElement("div");
+                    div.innerHTML = `${product.name} - $${product.price.toFixed(2)}
+                        <input type="number" id="qty-${product.id}" value="1" min="1" style="width:50px;">
+                        <button onclick="addToCart(${product.id}, '${product.name}', ${product.price})">Add</button>`;
+                    list.appendChild(div);
+                });
+            });
+
+        function addToCart(id, name, price) {
+            const qty = parseInt(document.getElementById(`qty-${id}`).value);
+            const total = price * qty;
+            cart.push({id, name, quantity: qty, total});
+            const cartList = document.getElementById("cart-list");
+            const item = document.createElement("li");
+            item.textContent = `${name} x${qty} - $${total.toFixed(2)}`;
+            cartList.appendChild(item);
+        }
+
+        function checkout() {
+            if (cart.length === 0) {
+                alert("Cart is empty.");
+                return;
+            }
+
+            fetch('/checkout', {
+                method: "POST",
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({cart})
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert(data.message);
+                cart = [];
+                document.getElementById("cart-list").innerHTML = "";
+            });
+        }
+    </script>
+</body>
+</html>
