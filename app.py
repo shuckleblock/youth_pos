@@ -1,27 +1,52 @@
 from flask import Flask, render_template, request, jsonify
-import sqlite3
+import psycopg2
+import os
 
 app = Flask(__name__)
 
-# --- Database Setup ---
+# --- Database Connection ---
+def get_db_connection():
+    return psycopg2.connect(
+        host=os.environ.get("DB_HOST"),
+        database=os.environ.get("DB_NAME"),
+        user=os.environ.get("DB_USER"),
+        password=os.environ.get("DB_PASSWORD"),
+        port=os.environ.get("DB_PORT", 5432)
+    )
+
+# --- Initialize Tables ---
 def init_db():
-    conn = sqlite3.connect("pos.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS products (
-                 id INTEGER PRIMARY KEY,
-                 name TEXT NOT NULL,
-                 price REAL NOT NULL)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS sales (
-                 id INTEGER PRIMARY KEY,
-                 product_id INTEGER,
-                 quantity INTEGER,
-                 total REAL,
-                 FOREIGN KEY(product_id) REFERENCES products(id))''')
-    # Sample data
-    c.execute("INSERT OR IGNORE INTO products VALUES (1, 'Apple', 0.50)")
-    c.execute("INSERT OR IGNORE INTO products VALUES (2, 'Banana', 0.30)")
-    c.execute("INSERT OR IGNORE INTO products VALUES (3, 'Orange', 0.80)")
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            price REAL NOT NULL
+        )
+    ''')
+
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS sales (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER REFERENCES products(id),
+            quantity INTEGER,
+            total REAL
+        )
+    ''')
+
+    # Insert demo data if not already there
+    cur.execute("SELECT COUNT(*) FROM products")
+    if cur.fetchone()[0] == 0:
+        cur.executemany("INSERT INTO products (name, price) VALUES (%s, %s)", [
+            ('Apple', 0.50),
+            ('Banana', 0.30),
+            ('Orange', 0.80)
+        ])
+
     conn.commit()
+    cur.close()
     conn.close()
 
 @app.route('/')
@@ -30,26 +55,31 @@ def index():
 
 @app.route('/products')
 def get_products():
-    conn = sqlite3.connect("pos.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM products")
-    rows = c.fetchall()
-    conn.close()
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM products")
+    rows = cur.fetchall()
     products = [{"id": row[0], "name": row[1], "price": row[2]} for row in rows]
+    cur.close()
+    conn.close()
     return jsonify(products)
 
 @app.route('/checkout', methods=["POST"])
 def checkout():
     data = request.json
+    conn = get_db_connection()
+    cur = conn.cursor()
     for item in data["cart"]:
-        conn = sqlite3.connect("pos.db")
-        c = conn.cursor()
-        c.execute("INSERT INTO sales (product_id, quantity, total) VALUES (?, ?, ?)", 
-                  (item["id"], item["quantity"], item["total"]))
-        conn.commit()
-        conn.close()
+        cur.execute(
+            "INSERT INTO sales (product_id, quantity, total) VALUES (%s, %s, %s)",
+            (item["id"], item["quantity"], item["total"])
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
     return jsonify({"status": "success", "message": "Transaction complete."})
 
 if __name__ == '__main__':
     init_db()
-    app.run(host='0.0.0.0', port=5000, debug=True)  # Accessible from iPad on local network
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
