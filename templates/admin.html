@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <style>
+        form { margin-bottom: 20px; }
+        input[type="text"], input[type="number"] { padding: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f4f4f4; }
+        td form { display: inline; }
+    </style>
+</head>
+<body>
+    <h1>Admin Panel</h1>
+
+    <h3>Add New Product</h3>
+    <form method="POST" enctype="multipart/form-data">
+        <label>Name: <input type="text" name="name" required></label>
+        <label>Price: <input type="number" step="0.01" name="price" required></label>
+        <label>Image: <input type="file" name="image" accept=".png,.jpg,.jpeg"></label>
+        <button type="submit">Add</button>
+    </form>
+
+    <h3>Existing Products</h3>
+    <table>
+        <tr><th>Name</th><th>Price</th><th>Actions</th></tr>
+        {% for name, price, id in products %}
+        <tr>
+            <form action="/admin/edit/{{ id }}" method="POST">
+                <td><input type="text" name="name" value="{{ name }}" required></td>
+                <td><input type="number" name="price" step="0.01" value="{{ price }}" required></td>
+                <td>
+                    <button type="submit">Update</button>
+            </form>
+            <form action="/admin/delete/{{ id }}" method="POST" onsubmit="return confirm('Delete this product?');">
+                <button type="submit" style="background-color: red; color: white;">Delete</button>
+            </form>
+                </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

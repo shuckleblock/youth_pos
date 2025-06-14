@@ -2,7 +2,17 @@ from flask import Flask, render_template, request, jsonify
 import psycopg2
 import os
 
+from flask import request, redirect, url_for, send_from_directory
+from werkzeug.utils import secure_filename
+from functools import wraps
+
+
+
 app = Flask(__name__)
+
+UPLOAD_FOLDER = os.path.join('static', 'images')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # --- Database Connection ---
 def get_db_connection():
@@ -40,9 +50,6 @@ def init_db():
     cur.execute("SELECT COUNT(*) FROM products")
     if cur.fetchone()[0] == 0:
         cur.executemany("INSERT INTO products (name, price) VALUES (%s, %s)", [
-            ('Apple', 0.50),
-            ('Banana', 0.30),
-            ('Orange', 0.80),
             ('삼겹살', 15.00),
             ('Lemonade', 3.00)
         ])
@@ -80,6 +87,83 @@ def checkout():
     cur.close()
     conn.close()
     return jsonify({"status": "success", "message": "Transaction complete."})
+
+#---auth for admin page---
+def check_auth(username, password):
+    return username == os.environ.get("ADMIN_USER") and password == os.environ.get("ADMIN_PASS")
+
+def authenticate():
+    return (
+        "Could not verify access.",
+        401,
+        {"WWW-Authenticate": 'Basic realm="Login Required"'}
+    )
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not check_auth(auth.username, auth.password):
+            return authenticate()
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/admin', methods=['GET', 'POST'])
+@requires_auth
+def admin():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    if request.method == 'POST':
+        name = request.form['name']
+        price = float(request.form['price'])
+
+        # Insert into DB
+        cur.execute("INSERT INTO products (name, price) VALUES (%s, %s)", (name, price))
+
+        # Handle image upload
+        file = request.files.get('image')
+        if file and file.filename != '':
+            ext = file.filename.rsplit('.', 1)[1].lower()
+            if ext in ALLOWED_EXTENSIONS:
+                filename = f"{name.lower()}.{ext}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(filename))
+                file.save(filepath)
+
+        conn.commit()
+
+    cur.execute("SELECT name, price, id FROM products ORDER BY id")
+
+    products = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("admin.html", products=products)
+
+@app.route('/admin/edit/<int:product_id>', methods=['POST'])
+def edit_product(product_id):
+    name = request.form['name']
+    price = float(request.form['price'])
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE products SET name = %s, price = %s WHERE id = %s", (name, price, product_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete/<int:product_id>', methods=['POST'])
+def delete_product(product_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM products WHERE id = %s", (product_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('admin'))
+
 
 if __name__ == '__main__':
     init_db()
