@@ -75,7 +75,8 @@ def get_products():
 
 @app.route('/checkout', methods=["POST"])
 def checkout():
-    data = request.json
+    data = request.get_json()
+    cart = data['cart']
     conn = get_db_connection()
     cur = conn.cursor()
     for item in cart:
