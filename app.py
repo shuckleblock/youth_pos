@@ -78,11 +78,20 @@ def checkout():
     data = request.json
     conn = get_db_connection()
     cur = conn.cursor()
-    for item in data["cart"]:
+    for item in cart:
+        product_id = item['id']
+        quantity = item['quantity']
+
+        # Get price
+        cur.execute("SELECT price FROM products WHERE id = %s", (product_id,))
+        price = cur.fetchone()[0]
+        total = price * quantity
+
         cur.execute(
-            "INSERT INTO sales (product_id, quantity, total) VALUES (%s, %s, %s)",
-            (item["id"], item["quantity"], item["total"])
+            "INSERT INTO sales (product_id, quantity, total, timestamp) VALUES (%s, %s, %s, NOW())",
+            (product_id, quantity, total)
         )
+
     conn.commit()
     cur.close()
     conn.close()
