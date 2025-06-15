@@ -196,10 +196,28 @@ def transactions():
     cur.execute("SELECT SUM(total) FROM sales")
     total_sales = cur.fetchone()[0] or 0.0
 
+    # Summary by product
+    cur.execute("""
+        SELECT 
+            p.name, 
+            SUM(s.quantity) AS total_quantity, 
+            SUM(s.total) AS total_revenue
+        FROM sales s
+        JOIN products p ON s.product_id = p.id
+        GROUP BY p.name
+        ORDER BY total_quantity DESC
+    """)
+    summary = cur.fetchall()
+
     cur.close()
     conn.close()
 
-    return render_template("transactions.html", sales=sales, total_sales=total_sales)
+    return render_template(
+        "transactions.html",
+        sales=sales,
+        total_sales=total_sales,
+        summary=summary
+    )
 
 if __name__ == '__main__':
     init_db()
