@@ -47,14 +47,6 @@ def init_db():
         )
     ''')
 
-    # Insert demo data if not already there
-    cur.execute("SELECT COUNT(*) FROM products")
-    if cur.fetchone()[0] == 0:
-        cur.executemany("INSERT INTO products (name, price) VALUES (%s, %s)", [
-            ('삼겹살', 15.00),
-            ('Lemonade', 3.00)
-        ])
-
     conn.commit()
     cur.close()
     conn.close()
