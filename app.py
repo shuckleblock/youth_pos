@@ -42,7 +42,8 @@ def init_db():
             id SERIAL PRIMARY KEY,
             product_id INTEGER REFERENCES products(id),
             quantity INTEGER,
-            total REAL
+            total REAL,
+            timestamp TIMESTAMP
         )
     ''')
 
